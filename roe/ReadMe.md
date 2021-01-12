@@ -1,6 +1,8 @@
 **Author:**  Cair<br>
-**Version:**  1.0<br>
-**Date:** Oct. 30, 2017<br>
+**Modder:**  Antinym<br>
+**Version:**  1.3<br>
+**Created:** Oct. 30, 2017<br>
+**Updated:** Jan. 12, 2021<br>
 
 ### ROE ###
 
@@ -18,13 +20,21 @@ This addon lets you save your currently set objectives to profiles that can be l
 3. set <profile name> : attempts to set the ROE objectives in the profile
     - Objectives may be canceled automatically based on settings.
     - The default setting is to only cancel ROE that have 0 progress if space is needed
-4. unset <profile name> : removes currently set objectives
+4. set <list of record ids> : takes ROE objective IDs as arguments (space or comma delimited)
+    - `roe set 1000` -- will try to set the "Speak to Fisherman's Guild Master" Objective
+    - `roe set 29 31` -- will try to set the "Total Damage I" and "Total Healing I" Objectives
+    - set profile rules as defined above apply
+5. unset <profile name> : removes currently set objectives
     - if a profile name is specified, every objective in that profile will be removed
     - if a profile name is not specificed, all objectives will be removed (based on your settings)
-5. settings <settings name> : toggles the specified setting
+6. set <list of record ids> : takes ROE objective IDs as arguments (space or comma delimited)
+    - `roe unset 1000` will try to unset the "Speak to Fisherman's Guild Master" Objective
+    - `roe unset 29,31` will try to unset the "Total Damage I" and "Total Healing I" Objectives
+    - unset profile rules as defined above apply
+7. settings <settings name> : toggles the specified setting
     * settings:
         * clear : removes objectives if space is needed (default true)
         * clearprogress : remove objectives even if they have non-zero progress (default false)
         * clearall : clears every objective before setting new ones (default false)
-6. blacklist [add|remove] <id> : blacklists a quest from ever being removed
-    - I do not currently have a mapping of quest IDs to names
+8. blacklist [add|remove] <id> : blacklists a quest from ever being removed
+    - **_Antinym_** -- I am slowly working on mapping the record id's. Feel free to update the roe_map.lua file and submit a PR.
