@@ -27,7 +27,7 @@
 
 _addon = {}
 _addon.name = 'ROE'
-_addon.version = '1.0'
+_addon.version = '1.3'
 _addon.author = "Cair"
 _addon.commands = {'roe'}
 
@@ -53,7 +53,6 @@ _roe = T{
     complete = T{},    
     max_count = 30,
 }
-
 
 local function cancel_roe(id)
     id = tonumber(id)
@@ -87,31 +86,55 @@ local function save(name)
     
     name = name:lower()
 
-    settings.profiles[name] = S(_roe.active:keyset())
+    settings.profiles[name] = S(_roe.active:keyset()):sort()
     settings:save('global')
     notice('saved %d objectives to the profile %s':format(_roe.active:length(), name))
 end
-
 
 local function list()
     notice('You have saved the following profiles: ')
     notice(settings.profiles:keyset())
 end
 
-local function set(name)
-    if not type(name) == "string" then
-        error('`set` : specify a profile name')
+
+local function parse_args(cmd,...)
+    local cmdln_set = T{...}
+    local last_set = S{}
+    local name
+    if #cmdln_set > 1 or cmdln_set[1]:contains(',') then
+        name = 'last_cmdln_'..cmd
+        for n in cmdln_set:it() do
+            if n:contains(',') then
+                n:split(','):map(function(el) if tonumber(el) then last_set:add(tonumber(el)) end end)
+            else
+                last_set:add(tonumber(n))
+            end
+        end
+        settings.profiles[name] = T(last_set:copy())
+    else
+        name = cmdln_set[1]
+    end
+
+    name = name and type(name) == "string" and name:lower() or name
+    local roe_id = not settings.profiles[name] and tonumber(name) or nil
+
+    return name, roe_id
+end
+
+local function set(...)
+    local name, roe_id = parse_args('set',...)
+
+    if (not name or not type(name) == "string") and not roe_id then
+        error('`set` : specify a profile name or a valid RoE id number.')
         return
     end
     
-    name = name:lower()
-    
-    if not settings.profiles[name] then
+    if not roe_id and not settings.profiles[name] then
         error('`set` : the profile \'%s\' does not exist':format(name))
         return
     end
     
-    local needed_quests = settings.profiles[name]:diff(_roe.active:keyset())   
+    local needed_quests = (roe_id and S{roe_id} or S(settings.profiles[name])):diff(_roe.active:keyset())
     local available_slots = _roe.max_count - _roe.active:length()
     local to_remove = S{}
            
@@ -143,17 +166,24 @@ local function set(name)
         accept_roe(id)
         coroutine.sleep(.5)
     end
-    
-    notice('loaded the profile \'%s\'':format(name))
+
+    if roe_id then
+       notice('loaded the Objective with id \'%s\'':format(name))
+    else
+        notice('loaded the profile \'%s\'':format(name))
+    end
 
 end
 
-local function unset(name)
+local function unset(...)
+    local name, roe_id = parse_args('unset',...)
 
-    name = name and name:lower()
-
-    if name and settings.profiles[name] then
-        for id in _roe.active:keyset():intersection(settings.profiles[name]):it() do
+    if roe_id then
+        cancel_roe(name)
+        notice('unset RoE Objective [ \'%d\' ]':format(name))
+    elseif name and settings.profiles[name] then
+        for id in _roe.active:keyset():intersection(S(settings.profiles[name])):it() do
+            log('id:',id)
             cancel_roe(id)
             coroutine.sleep(.5)
         end
@@ -272,7 +302,11 @@ end
 
 local function addon_command_handler(command,...)
     local cmd  = command and command:lower() or "help"
-    if cmd_handlers[cmd] then
+    if cmd == 'r' then
+        return windower.send_command('lua r roe')
+    elseif cmd == 'u' then
+        return windower.send_command('lua u roe')
+    elseif cmd_handlers[cmd] then
         cmd_handlers[cmd](...)
     else
         error('unknown command `%s`':format(cmd or ''))
@@ -283,7 +317,9 @@ end
 local function load_handler()
     for k,v in pairs(settings.profiles) do
         if type(v) == "string" then
-            settings.profiles[k] = S(v:split(','):map(tonumber))
+            settings.profiles[k] = S(v:split(','):map(tonumber)):sort()
+        elseif type(v) == 'number' then
+            settings.profiles[k] = S{tostring(v)}
         end
     end
     

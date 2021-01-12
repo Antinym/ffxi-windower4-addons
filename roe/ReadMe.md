@@ -6,7 +6,11 @@
 
 This addon lets you save your currently set objectives to profiles that can be loaded. It can also be configured to remove quests for you. By default, ROE will remove quests that are not in a profile only if their progress is zero. You can customize this to your liking.
 
-
+### Version History ###
+1.3 added unsetting multiple records by id from cmdline
+1.2 added setting multiple records by id from cmdline
+1.1 added setting/unsetting records by id
+1.0 Cair launches stable version.
 
 #### Commands: ####
 1. help - Displays this help menu.
