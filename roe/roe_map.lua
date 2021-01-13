@@ -49,6 +49,7 @@ roe_id_keys = {
     [] = 'Alter Ego: Adelheid',
     [] = 'Alter Ego: Joachim',
     [1447] = 'Exploring the Trove',
+    [1448] = 'Assist Channel',
     -- 'Intermediate'
     [1045] = 'Achieve Level 99',
     [] = 'An Eminent Scholar',
