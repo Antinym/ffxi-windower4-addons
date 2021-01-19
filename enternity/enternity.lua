@@ -50,7 +50,7 @@ do
     windower.send_command('alias eon lua i enternity toggle enabled on')
     windower.send_command('alias eoff lua i enternity toggle enabled off')
     windower.send_command('alias enternity lua i enternity toggle')
-    windower.send_command('alias eskip lua i enternity skipall')
+    windower.send_command('alias eskip lua i enternity toggle skipall')
 end
 
 --[[ This is a fairly flawed function, at least from a ux perspective.
@@ -76,7 +76,7 @@ function toggle(set, val)
     }
 
     local setting = _lookups[set:lower()] or set:lower()
-    if not setting or not _enternity[setting] then return false end
+    -- if not setting or not _enternity[setting] then return false end
     if not val then 
         _enternity[setting] = not _enternity[setting] 
     elseif T{'false','f','nil','off','end'}:contains(val:lower()) then
