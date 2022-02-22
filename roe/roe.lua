@@ -24,10 +24,8 @@
 -- (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 -- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-_addon = {}
 _addon.name = 'ROE'
-_addon.version = '1.3'
+_addon.version = '1.3.1'
 _addon.author = "Cair"
 _addon.commands = {'roe'}
 
@@ -44,6 +42,9 @@ local defaults = T{
     clear = true,
     clearprogress = false,
     clearall = false,
+    log_last_records_added = false,
+    packet_delay = .5,
+    debug = false
 }
 
 settings = config.load(defaults)
@@ -52,6 +53,8 @@ _roe = T{
     active = T{},
     complete = T{},    
     max_count = 30,
+    last_packet_time,
+    first_run = true
 }
 
 local function cancel_roe(id)
@@ -60,25 +63,43 @@ local function cancel_roe(id)
     if not id then return end
     
     if settings.blacklist[id] or not _roe.active[id] then return end
-    
+
+    -- in case user makes multiple calls (e.g. macro mashing)
+    if _roe.last_packet_time then
+        local packet_delay_delta = settings.packet_delay - (os.time() - _roe.last_packet_time)
+        if packet_delay_delta > 0 then
+            coroutine.sleep(packet_delay_delta)
+        end
+    end
+
     local p = packets.new('outgoing', 0x10d, {['RoE Quest'] = id })
     packets.inject(p)
+    _roe.last_packet_time = os.time()
 end
 
 local function accept_roe(id)
     id = tonumber(id)
     
     if not id or _roe.complete[id] or _roe.active[id] then return end
+
+    -- in case user makes multiple calls (e.g. macro mashing)
+    if _roe.last_packet_time then
+        local packet_delay_delta = settings.packet_delay - (os.time() - _roe.last_packet_time)
+        if packet_delay_delta > 0 then
+            coroutine.sleep(packet_delay_delta)
+        end
+    end
     
     local p = packets.new('outgoing', 0x10c, {['RoE Quest'] = id })
     packets.inject(p)
+    _roe.last_packet_time = os.time()
 end
 
 local function eval(...)
     assert(loadstring(table.concat({...}, ' ')))()
 end
 
-local function save(name)
+local function save(name, records)
     if not type(name) == "string" then
         error('`save` : specify a profile name')
         return
@@ -86,9 +107,11 @@ local function save(name)
     
     name = name:lower()
 
-    settings.profiles[name] = S(_roe.active:keyset()):sort()
+    settings.profiles[name] = records and S(records):sort() or S(_roe.active:keyset()):sort()
     settings:save('global')
-    notice('saved %d objectives to the profile %s':format(_roe.active:length(), name))
+    if not records then
+        notice('saved %d objectives to the profile %s':format(_roe.active:length(), name))
+    end
 end
 
 local function list()
@@ -164,7 +187,7 @@ local function set(...)
     
     for id in needed_quests:it() do
         accept_roe(id)
-        coroutine.sleep(.5)
+        coroutine.sleep(settings.packet_delay)
     end
 
     if roe_id then
@@ -185,7 +208,7 @@ local function unset(...)
         for id in _roe.active:keyset():intersection(S(settings.profiles[name])):it() do
             log('id:',id)
             cancel_roe(id)
-            coroutine.sleep(.5)
+            coroutine.sleep(settings.packet_delay)
         end
         notice('unset the profile \'%s\'':format(name))
     elseif name then
@@ -195,7 +218,7 @@ local function unset(...)
         for id,progress in pairs(_roe.active:copy()) do
             if progress == 0 or settings.clearprogress then
                 cancel_roe(id)
-                coroutine.sleep(.5)
+                coroutine.sleep(settings.packet_delay)
             end
         end
     end
@@ -230,7 +253,6 @@ local function blacklist(add_remove,id)
     add_remove = add_remove and add_remove:lower()
     id = id and tonumber(id)
 
-    
     if add_remove and id then
         if add_remove == 'add' then
             settings.blacklist:add(id)
@@ -266,6 +288,35 @@ local function help()
     - I do not currently have a mapping of quest IDs to names]])
 end
 
+-- requires a valid record id and if a 2nd argument is passed the printed output will be suppressed.
+-- returns 3 values: the record id parameter, the record progression, and (bool) if the record is active.
+function check_status(id, silent)
+    local roe_id = tonumber(id)
+    local print_results = silent and false or true
+    if not roe_id and (_roe.complete[roe_id] or _roe.active[roe_id]) then 
+        error('please use a valid record id.')
+        return
+    end
+
+    local record_progress = 'Not started yet.'
+    local record_is_active = false
+    if _roe.active[roe_id] then
+        record_progress = _roe.active[roe_id]
+        record_is_active = true
+    elseif _roe.complete[roe_id] then
+        record_progress = _roe.complete[roe_id]
+    end
+
+    local active_string = record_is_active and ' <active>' or ''
+    -- BUG?: I think _roe.[active|complete] might have bool values in some cases
+    local progress_string = record_progress and tostring(record_progress) or '<not started>'
+    if print_results then 
+        log('[%s]:%s %s':format(roe_id, active_string, progress_string))
+    end
+
+    return roe_id, record_progress, record_is_active
+end
+
 local cmd_handlers = {
     eval = eval,
     save = save,
@@ -275,17 +326,31 @@ local cmd_handlers = {
     settings = handle_setting,
     blacklist = blacklist,
     help = help,
+    check = check_status
 }
 
 
 local function inc_chunk_handler(id,data)
     if id == 0x111 then
+        local last_active = settings.log_last_records_added and _roe.active:keyset() or nil
         _roe.active:clear()
         for i = 1, _roe.max_count do
             local offset = 5 + ((i - 1) * 4)
             local id,progress = data:unpack('b12b20', offset)
-            if id > 0 then
+            if tonumber(id) > 0 then
                 _roe.active[id] = progress
+            end
+        end
+        if settings.log_last_records_added then
+            local last_active_table = type(last_active) == 'table' and S(last_active) or S{tostring(last_active)}
+            local last_record_ids = S(_roe.active:keyset():diff(last_active_table)):sort()
+            if last_record_ids:length() > 0 then
+                save('last_record_ids',last_record_ids)
+                if _roe.first_run then
+                    _roe.first_run = false
+                else
+                    debug('last_record_ids: '..last_record_ids:tostring())
+                end
             end
         end
     elseif id == 0x112 then
@@ -328,6 +393,10 @@ local function load_handler()
 
 end
 
+local function init_handler()
+    _roe.first_run = true
+end
 windower.register_event('incoming chunk', inc_chunk_handler)
 windower.register_event('addon command', addon_command_handler)
 windower.register_event('load', load_handler)
+windower.register_event('login', init_handler)

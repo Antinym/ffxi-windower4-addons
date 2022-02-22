@@ -1,8 +1,8 @@
 **Author:**  Cair<br>
 **Modder:**  Antinym<br>
-**Version:**  1.3<br>
+**Version:**  1.3.1<br>
 **Created:** Oct. 30, 2017<br>
-**Updated:** Jan. 12, 2021<br>
+**Updated:** Feb. 21, 2022<br>
 
 ### ROE ###
 
@@ -27,7 +27,7 @@ This addon lets you save your currently set objectives to profiles that can be l
 5. unset <profile name> : removes currently set objectives
     - if a profile name is specified, every objective in that profile will be removed
     - if a profile name is not specificed, all objectives will be removed (based on your settings)
-6. set <list of record ids> : takes ROE objective IDs as arguments (space or comma delimited)
+6. unset <list of record ids> : takes ROE objective IDs as arguments (space or comma delimited)
     - `roe unset 1000` will try to unset the "Speak to Fisherman's Guild Master" Objective
     - `roe unset 29,31` will try to unset the "Total Damage I" and "Total Healing I" Objectives
     - unset profile rules as defined above apply
@@ -37,4 +37,4 @@ This addon lets you save your currently set objectives to profiles that can be l
         * clearprogress : remove objectives even if they have non-zero progress (default false)
         * clearall : clears every objective before setting new ones (default false)
 8. blacklist [add|remove] <id> : blacklists a quest from ever being removed
-    - **_Antinym_** -- I am slowly working on mapping the record id's. Feel free to update the roe_map.lua file and submit a PR.
+    - **_Antinym_** -- There is a complete map of ids to record names, but using it is saved for future updates.
